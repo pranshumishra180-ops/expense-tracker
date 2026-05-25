@@ -1,4 +1,1 @@
-server/.env
-server/node_modules/
-expense-tracker/.env
-expense-tracker/node_modules/
+.env
