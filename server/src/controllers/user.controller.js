@@ -1,0 +1,143 @@
+const userModel = require("../models/user.model")
+const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken");
+
+async function registerUser(req,res){
+
+    try{
+        const {username,email,password} = req.body;
+
+        console.log(req.body)
+
+        const isAlreadyRegistered = await userModel.findOne({
+            $or: [
+                {email},
+                {username}
+            ]
+        });
+        if(isAlreadyRegistered){
+            return res.status(400).json({
+                message:"User already registered with this email or username"
+            });
+        }
+        const hash = await bcrypt.hash(password,10);
+
+        const user = await userModel.create({
+            username,
+            email,
+            password:hash
+        });
+        const token = jwt.sign(
+            {
+                id: user._id,
+             email: user.username,
+             username: user.username
+
+        },        process.env.JWT_SECRET,
+        {
+            expiresIn:"15d"
+        }
+    );
+    res.cookie("token",token)
+
+    return res.status(201).json({
+        message:"User registered successfully",
+        user
+    });
+    }catch(err){
+        console.log(err);
+        return res.status(500).json({
+            message:err.message
+        });
+    }
+}
+
+
+async function loginUser(req,res){
+
+    try{
+            const {username , email,password} = req.body;
+
+            const user = await userModel.findOne({
+
+            $or: [
+                {email},
+                {username}
+            ]
+            
+        });
+        if(!user){
+            return res.status(400).json({
+                message:"Invalid Credentials"
+            })  ;         
+        }
+        const isPasswordValid = await bcrypt.compare(password,user.password);
+        if(!isPasswordValid){
+            return res.status(400).json({
+                message:"Invalid Credentials"
+            })           
+        }
+
+        const token = jwt.sign(
+            {
+                id:user._id,
+                username:user.username
+            }, 
+            process.env.JWT_SECRET,
+            {
+                expiresIn :"15d"
+
+            }
+        )
+  
+            res.cookie("token", token, {
+
+  httpOnly: true,
+
+  secure: false,
+
+  sameSite: "lax",
+
+});
+return res.status(200).json({
+
+    message: "Login Successful",
+
+    user,
+
+    token
+
+});
+        
+    }catch(err){
+        console.log(err);
+        return res.status(500).json({
+            message:err.message
+        })
+    }   
+}
+
+ async function logoutUser(req, res) {
+
+  try {
+
+    res.clearCookie("token");
+
+    return res.status(200).json({
+      message: "Logout Successful"
+    });
+
+  } catch (err) {
+
+    return res.status(500).json({
+      message: err.message
+    });
+  }
+}
+
+    module.exports =
+     {
+        registerUser,
+        loginUser,
+        logoutUser
+    }
